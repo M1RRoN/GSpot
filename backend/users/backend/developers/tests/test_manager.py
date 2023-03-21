@@ -1,9 +1,8 @@
-from developers.managers import CompanyQuerySet
-from developers.models import CompanyUser
+from developers.models import CompanyUser, Company
 from django.test import TestCase
 
 
-class CompanyEmployeeManagerTestCase(TestCase):
+class CompanyUserManagerTestCase(TestCase):
     def setUp(self):
         self.user1 = CompanyUser.objects.create(
             username='test_user1',
@@ -25,9 +24,5 @@ class CompanyEmployeeManagerTestCase(TestCase):
         )
 
     def test_get_workers_count(self):
-        workers = CompanyUser.objects.get_workers_count()
+        workers = CompanyUser.objects.get_queryset()
         self.assertEqual(workers.count(), 3)
-
-        companies = Company.objects.get_workers_count()
-        for company in companies.values('id', 'name', 'workers_count'):
-            print(company['id'], company['name'], company['workers_count'])
