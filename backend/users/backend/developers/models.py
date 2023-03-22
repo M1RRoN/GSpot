@@ -3,7 +3,7 @@ import uuid
 from django.db import models
 
 from common.models import BaseUser, Country, BaseContentType, BasePermission, BaseGroup
-from developers.managers import CompanyUserManager
+from developers.managers import CompanyManager, CompanyEmployeeManager
 from django.utils.translation import gettext_lazy as _
 
 
@@ -16,10 +16,8 @@ class CompanyUser(BaseUser):
     created_at = models.DateTimeField(auto_now_add=True)
     is_superuser = models.BooleanField(default=False)
 
-    objects = CompanyUserManager()
 
-
-class DeveloperFriends(models.Model):
+class CompanyUserFriends(models.Model):
     id = models.IntegerField(primary_key=True)
     user1 = models.ForeignKey(CompanyUser, on_delete=models.CASCADE, related_name='user1_friends')
     user2 = models.ForeignKey(CompanyUser, on_delete=models.CASCADE, related_name='user2_friends')
@@ -36,11 +34,14 @@ class Company(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
+    objects = CompanyManager()
+
 
 class CompanyEmployee(models.Model):
     user_id = models.OneToOneField(CompanyUser, on_delete=models.PROTECT, primary_key=True)
     company = models.ForeignKey(Company, on_delete=models.PROTECT)
 
+    objects = CompanyEmployeeManager()
 
 class ContactType(models.Model):
     name = models.CharField(max_length=50)
