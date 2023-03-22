@@ -3,7 +3,6 @@ import uuid
 from django.db import models
 
 from common.models import BaseUser, Country, BaseContentType, BasePermission, BaseGroup
-from developers.managers import CompanyManager, CompanyEmployeeManager
 from django.utils.translation import gettext_lazy as _
 
 
@@ -15,49 +14,32 @@ class CompanyUser(BaseUser):
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     is_superuser = models.BooleanField(default=False)
-
-
-class CompanyUserFriends(models.Model):
-    id = models.IntegerField(primary_key=True)
-    user1 = models.ForeignKey(CompanyUser, on_delete=models.CASCADE, related_name='user1_friends')
-    user2 = models.ForeignKey(CompanyUser, on_delete=models.CASCADE, related_name='user2_friends')
+    friends = models.ManyToManyField('self')
 
 
 class Company(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.OneToOneField(CompanyUser, on_delete=models.PROTECT)
     title = models.CharField(max_length=50)
-    description = models.TextField(max_length=200)
+    description = models.TextField()
     email = models.EmailField(unique=True)
     image = models.ImageField(blank=True)
     is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    contacts = models.ForeignKey('ContactType', on_delete=models.CASCADE)
 
-    objects = CompanyManager()
-
-
-class CompanyEmployee(models.Model):
-    user_id = models.OneToOneField(CompanyUser, on_delete=models.PROTECT, primary_key=True)
-    company = models.ForeignKey(Company, on_delete=models.PROTECT)
-
-    objects = CompanyEmployeeManager()
 
 class ContactType(models.Model):
+    id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=50)
     icon = models.ImageField(blank=True)
-
-
-class Contacts(models.Model):
-    id = models.IntegerField(primary_key=True)
-    type = models.ForeignKey(ContactType, on_delete=models.PROTECT)
     value = models.CharField(max_length=50)
 
-
-class CompanyContact(models.Model):
-    id = models.IntegerField(primary_key=True)
-    contact = models.ForeignKey(Contacts, on_delete=models.PROTECT)
-    company = models.ForeignKey(Company, on_delete=models.PROTECT)
+    class Meta(BaseContentType.Meta):
+        db_table = "developer_contact_type"
+        verbose_name = _("developer contact type")
+        verbose_name_plural = _("developer contact types")
 
 
 class DeveloperContentType(BaseContentType):
@@ -88,6 +70,11 @@ class DeveloperUserPermissions(BasePermission):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     permission = models.ForeignKey(DeveloperPermission, on_delete=models.PROTECT)
     user = models.ForeignKey(CompanyUser, on_delete=models.PROTECT)
+
+    class Meta(BaseGroup.Meta):
+        db_table = "developer_user_permission"
+        verbose_name = _("developer user permission")
+        verbose_name_plural = _("developer user permissions")
 
 
 class DeveloperGroup(BaseGroup):
