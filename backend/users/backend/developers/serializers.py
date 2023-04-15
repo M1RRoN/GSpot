@@ -18,9 +18,3 @@ class CompanyEmployeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = ('email', 'description', 'poster', 'created_by')
-
-
-class CompanyUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CompanyUser
-        fields = '__all__'
