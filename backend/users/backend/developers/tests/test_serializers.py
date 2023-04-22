@@ -107,6 +107,4 @@ class CompanyEmployeeSerializerTest(TestCase):
 
     def test_serialize_employee(self):
         serializer = CompanyEmployeeSerializer(instance=self.company)
-        # self.assertEqual(serializer.data, self.serializer_data)
         self.assertEqual(set(serializer.data.keys()), set(self.serializer_data.keys()))
-
