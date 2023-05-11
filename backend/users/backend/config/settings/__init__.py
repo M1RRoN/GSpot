@@ -5,3 +5,4 @@ from .drf import *
 from .auth import *
 from .djoser import *
 from .simple_jwt import *
+from .rabbitmq import *

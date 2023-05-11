@@ -1,8 +1,8 @@
-import pika
 import unittest
-from unittest.mock import patch, MagicMock
+import json
 
-from utils.broker.message import BaseMessage
+from utils.broker.message import BaseMessage, FriendAddedMessage, DevAccessMessage, OwnerAccessMessage, \
+    ClientActivationMessage, DevActivationMessage
 from utils.broker.rabbitmq import RabbitMQ
 
 
@@ -18,27 +18,60 @@ class TestBaseMessage(unittest.TestCase):
 
 
 class TestRabbitMQ(unittest.TestCase):
-    @patch('pika.BlockingConnection')
-    def test_send_message(self, mock_pika):
-        mock_channel = MagicMock()
-        mock_pika.return_value.channel.return_value = mock_channel
 
-        message = BaseMessage(
-            exchange_name='test_exchange',
-            routing_key='test_queue',
-            message={'text': 'Hello, RabbitMQ!'}
-        )
+    def setUp(self) -> None:
+        self.rabbitmq = RabbitMQ()
 
-        with RabbitMQ() as rabbitmq:
-            rabbitmq.send_message(message)
+    def test_send_and_receive_message(self):
 
-        mock_channel.basic_publish.assert_called_once_with(
-            exchange='test_exchange',
-            routing_key='test_queue',
-            body=b'{"text": "Hello, RabbitMQ!"}'
-        )
+        self.rabbitmq.__enter__()
+        self.rabbitmq._channel.queue_declare(queue='test_queue')
+        message = BaseMessage(exchange_name='', routing_key='test_queue', message={'test': 'test message'})
 
-    def test_connection_closed_on_exception(self):
-        with self.assertRaises(pika.exceptions.AMQPConnectionError):
-            with RabbitMQ() as rabbitmq:
-                raise pika.exceptions.AMQPConnectionError('Test error')
+        self.rabbitmq.send_message(message)
+        method, properties, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
+
+        self.assertIsNotNone(body)
+        message_dict = json.loads(body)
+        self.assertIsInstance(message_dict, dict)
+        self.assertEqual(message_dict['test'], 'test message')
+
+    def test_send_and_receive_dev_activation_message(self):
+        with self.rabbitmq:
+            dev_activation_message = DevActivationMessage(exchange_name='', routing_key='test_queue', message={'user_id': '123', 'is_active': True})
+            self.rabbitmq.send_message(dev_activation_message)
+            method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
+            received_message = json.loads(body)
+            self.assertEqual(received_message, dev_activation_message.message)
+
+    def test_send_and_receive_client_activation_message(self):
+        with self.rabbitmq:
+            client_activation_message = ClientActivationMessage(exchange_name='', routing_key='test_queue', message={'user_id': '456', 'is_active': True})
+            self.rabbitmq.send_message(client_activation_message)
+            method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
+            received_message = json.loads(body)
+            self.assertEqual(received_message, client_activation_message.message)
+
+    def test_send_and_receive_owner_access_message(self):
+        with self.rabbitmq:
+            owner_access_message = OwnerAccessMessage(exchange_name='', routing_key='test_queue', message={'user_id': '789', 'access_level': 'admin'})
+            self.rabbitmq.send_message(owner_access_message)
+            method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
+            received_message = json.loads(body)
+            self.assertEqual(received_message, owner_access_message.message)
+
+    def test_send_and_receive_dev_access_message(self):
+        with self.rabbitmq:
+            dev_access_message = DevAccessMessage(exchange_name='', routing_key='test_queue', message={'user_id': '123', 'access_level': 'developer'})
+            self.rabbitmq.send_message(dev_access_message)
+            method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
+            received_message = json.loads(body)
+            self.assertEqual(received_message, dev_access_message.message)
+
+    def test_send_and_receive_friend_added_message(self):
+        with self.rabbitmq:
+            friend_added_message = FriendAddedMessage(exchange_name='', routing_key='test_queue', message={'user_id': '123', 'friend_id': '456'})
+            self.rabbitmq.send_message(friend_added_message)
+            method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
+            received_message = json.loads(body)
+            self.assertEqual(received_message, friend_added_message.message)
