@@ -75,3 +75,51 @@ class TestRabbitMQ(unittest.TestCase):
             method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue='test_queue', auto_ack=True)
             received_message = json.loads(body)
             self.assertEqual(received_message, friend_added_message.message)
+
+    def test_send_message_with_invalid_format(self):
+        with self.assertRaises(TypeError):
+            invalid_message = "invalid message"
+            message = BaseMessage(exchange_name='', routing_key='test_queue', message=invalid_message)
+            self.rabbitmq.send_message(message)
+
+    def test_send_message_to_nonexistent_queue(self):
+        with self.assertRaises(Exception):
+            message = BaseMessage(exchange_name='', routing_key='nonexistent_queue', message={'test': 'test message'})
+            self.rabbitmq.send_message(message)
+
+    def test_send_message_with_invalid_routing_key(self):
+        with self.assertRaises(Exception):
+            message = BaseMessage(exchange_name='', routing_key=123, message={'test': 'test message'})
+            self.rabbitmq.send_message(message)
+
+    def test_send_and_receive_multiple_messages_in_order(self):
+        with self.rabbitmq:
+            queue_name = 'test_queue'
+            self.rabbitmq._channel.queue_declare(queue=queue_name)
+            messages = [
+                BaseMessage(exchange_name='', routing_key=queue_name, message={'test': 'test message 1'}),
+                BaseMessage(exchange_name='', routing_key=queue_name, message={'test': 'test message 2'}),
+                BaseMessage(exchange_name='', routing_key=queue_name, message={'test': 'test message 3'})
+            ]
+            for message in messages:
+                self.rabbitmq.send_message(message)
+
+            received_messages = []
+            for i in range(len(messages)):
+                method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue=queue_name, auto_ack=True)
+                if body is not None:
+                    received_messages.append(json.loads(body))
+
+            self.assertListEqual(received_messages, [m.message for m in messages])
+
+    def test_receive_message_from_empty_queue(self):
+        with self.rabbitmq:
+            queue_name = 'empty_queue'
+            self.rabbitmq._channel.queue_declare(queue=queue_name)
+            method_frame, header_frame, body = self.rabbitmq._channel.basic_get(queue=queue_name, auto_ack=True)
+            self.assertIsNone(body)
+
+    def test_send_message_with_invalid_exchange(self):
+        with self.assertRaises(Exception):
+            message = BaseMessage(exchange_name=123, routing_key='test_queue', message={'test': 'test message'})
+            self.rabbitmq.send_message(message)
