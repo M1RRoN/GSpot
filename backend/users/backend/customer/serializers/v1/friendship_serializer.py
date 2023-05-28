@@ -1,9 +1,10 @@
 from rest_framework import serializers
 
-from customer.models import CustomerUser
+from customer.models import FriendShipRequest
 
 
-class UserSerializer(serializers.ModelSerializer):
+class FriendShipRequestSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomerUser
-        fields = '__all__'
+        model = FriendShipRequest
+        fields = ['id', 'status', 'sender', 'receiver']
+        read_only_fields = ['id', 'status', 'sender', 'receiver']
