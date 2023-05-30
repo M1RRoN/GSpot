@@ -38,7 +38,7 @@ class FriendshipViewSet(viewsets.ModelViewSet):
         if friend_request_exists:
             return Response({'error': 'Friend request already sent.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        friend_request = FriendShipRequest.objects.create(sender=user, receiver=friend)
+        FriendShipRequest.objects.create(sender=user, receiver=friend)
         message = FriendAddedMessage(
             exchange_name='friend_added_exchange',
             routing_key='friend_added_queue',
