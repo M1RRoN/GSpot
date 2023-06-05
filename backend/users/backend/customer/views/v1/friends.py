@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, status
@@ -12,7 +13,7 @@ from utils.broker.rabbitmq import RabbitMQ
 
 
 class FriendshipViewSet(viewsets.ModelViewSet):
-    queryset = CustomerUser.objects.all()
+    queryset = FriendShipRequest.objects.all()
     serializer_class = FriendShipRequestSerializer
     http_method_names = ['post']
 
@@ -21,7 +22,7 @@ class FriendshipViewSet(viewsets.ModelViewSet):
             friend = CustomerUser.objects.get(id=friend_id)
             return friend
         except CustomerUser.DoesNotExist:
-            return None
+            return Response({'error': 'Friend not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['post'])
     @swagger_auto_schema(operation_description='Отправить запрос на добавление в друзья', tags=['Друзья'])
@@ -30,22 +31,20 @@ class FriendshipViewSet(viewsets.ModelViewSet):
         request_data = json.loads(request.data)
         friend_id = request_data['friend_id']
         friend = self._get_friend(friend_id)
-        if friend is None:
-            return Response({'error': 'Friend not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if a friend request already exists between the users
         friend_request_exists = FriendShipRequest.objects.filter(sender=user, receiver=friend).exists()
         if friend_request_exists:
             return Response({'error': 'Friend request already sent.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        FriendShipRequest.objects.create(sender=user, receiver=friend)
-        message = FriendAddedMessage(
-            exchange_name='friend_added_exchange',
-            routing_key='friend_added_queue',
-            message={'friend_id': str(friend_id), "sender_id": str(user.id)}
-        )
-        with RabbitMQ() as rabbitmq:
-            rabbitmq.send_message(message)
+        with transaction.atomic():
+            FriendShipRequest.objects.create(sender=user, receiver=friend)
+            message = FriendAddedMessage(
+                exchange_name='friend_added_exchange',
+                routing_key='friend_added_queue',
+                message={'friend_id': str(friend_id), "sender_id": str(user.id)}
+            )
+            with RabbitMQ() as rabbitmq:
+                rabbitmq.send_message(message)
         return Response({'success': 'Friend request sent.'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -89,7 +88,7 @@ class FriendshipViewSet(viewsets.ModelViewSet):
         )
         if friend_requests.exists():
             friend_requests.delete()
-            return Response({'success': 'Removed from friends.'}, status=status.HTTP_200_OK)
+            return Response(status=status.HTTP_200_OK)
         else:
             return Response({'error': 'No friend found.'}, status=status.HTTP_400_BAD_REQUEST)
 
