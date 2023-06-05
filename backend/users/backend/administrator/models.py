@@ -19,11 +19,13 @@ class AdminPermissionMixin(BasePermissionMixin):
     def has_perm(self, perm, obj=None):
         if self.is_active and self.is_superuser:
             return True
-
-        queryset = self.user_permissions.filter(codename=perm) | AdminPermission.objects.filter(
+        user_perm = self.user_permissions.filter(codename=perm) | AdminPermission.objects.filter(
             admingroup__admin=self, codename=perm
         )
-        return queryset.exists()
+        dev_perm = self.developer_permissions.filter(
+            codename=perm
+        ) | DeveloperPermission.objects.filter(developergroup__admin=self, codename=perm)
+        return user_perm.exists() or dev_perm.exists()
 
     def get_all_permissions(self, obj=None):
         return self.user_permissions.all() | AdminPermission.objects.filter(admingroup__admin=self)
@@ -37,8 +39,8 @@ class AdminGroup(BaseGroup):
         AdminPermission,
         verbose_name=_("permission"),
         blank=True,
-        related_name='admingroup_set',
-        related_query_name='admingroup',
+        related_name="admingroup_set",
+        related_query_name="admingroup",
     )
 
     class Meta(BaseGroup.Meta):
@@ -74,7 +76,7 @@ class Admin(BaseAbstractUser, AdminPermissionMixin):
     is_superuser = models.BooleanField(default=False)
     country = models.ForeignKey(
         Country,
-        verbose_name=_('admin country'),
+        verbose_name=_("admin country"),
         on_delete=models.SET_NULL,
         null=True,
     )
@@ -114,6 +116,12 @@ class Admin(BaseAbstractUser, AdminPermissionMixin):
         related_name="admin_set",
         related_query_name="admin",
     )
+
+    @property
+    def permissions_codename(self) -> list[str]:
+        return list(self.user_permissions.values_list("codename", flat=True)) + list(
+            self.developer_permissions.values_list("codename", flat=True)
+        )
 
     objects = AdminManager()
 
